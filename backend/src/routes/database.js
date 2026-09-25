@@ -116,25 +116,4 @@ router.get('/export-schema', (req, res) => {
   }
 });
 
-router.get('/download-bat', (req, res) => {
-  try {
-    const candidates = [
-      path.resolve(process.cwd(), 'start.bat'),
-      path.join(__dirname, '..', '..', '..', 'start.bat'),
-      path.join(__dirname, '..', '..', 'start.bat'),
-    ];
-    const batPath = candidates.find((p) => fs.existsSync(p));
-    if (batPath) {
-      res.setHeader('Content-Type', 'application/x-bat');
-      res.setHeader('Content-Disposition', 'attachment; filename="start.bat"');
-      const content = fs.readFileSync(batPath, 'utf-8');
-      res.send(content);
-    } else {
-      res.status(404).json({ error: 'start.bat file not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 export default router;
