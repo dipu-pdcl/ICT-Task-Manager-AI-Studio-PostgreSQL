@@ -1,0 +1,95 @@
+import { Router } from 'express';
+import { requireAuth, isAdmin } from '../middleware.js';
+import { testPostgresConnection, runPostgresMigrations, syncSqliteToPostgres, getPostgresConfig } from '../pg.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const router = Router();
+router.use(requireAuth);
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SCHEMA_FILE = path.join(__dirname, '..', 'db', 'schema.postgres.sql');
+
+router.get('/status', async (req, res) => {
+  const config = getPostgresConfig();
+  const test = await testPostgresConnection();
+  res.json({
+    hasConfig: !!config,
+    config: config ? {
+      host: config.host || 'connection string configured',
+      database: config.database || 'default',
+      user: config.user || 'configured',
+      ssl: !!config.ssl,
+    } : null,
+    connection: test,
+  });
+});
+
+router.post('/test', async (req, res) => {
+  const { connectionString, host, port, user, password, database, ssl } = req.body || {};
+  let customConfig = null;
+  if (connectionString) {
+    customConfig = {
+      connectionString,
+      ssl: ssl ? { rejectUnauthorized: false } : false,
+    };
+  } else if (host) {
+    customConfig = {
+      host,
+      port: Number(port) || 5432,
+      user,
+      password,
+      database,
+      ssl: ssl ? { rejectUnauthorized: false } : false,
+    };
+  }
+
+  const result = await testPostgresConnection(customConfig);
+  res.json(result);
+});
+
+router.post('/migrate', async (req, res) => {
+  if (!isAdmin(req.user)) {
+    return res.status(403).json({ error: 'Admin permission required' });
+  }
+
+  const { connectionString } = req.body || {};
+  const customConfig = connectionString ? { connectionString, ssl: { rejectUnauthorized: false } } : null;
+
+  try {
+    const result = await runPostgresMigrations(customConfig);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Migration failed' });
+  }
+});
+
+router.post('/sync', async (req, res) => {
+  if (!isAdmin(req.user)) {
+    return res.status(403).json({ error: 'Admin permission required' });
+  }
+
+  const { connectionString } = req.body || {};
+  const customConfig = connectionString ? { connectionString, ssl: { rejectUnauthorized: false } } : null;
+
+  try {
+    const result = await syncSqliteToPostgres(customConfig);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Sync failed' });
+  }
+});
+
+router.get('/export-schema', (req, res) => {
+  try {
+    const sql = fs.readFileSync(SCHEMA_FILE, 'utf-8');
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', 'attachment; filename="pdcl_taskflow_postgres_schema.sql"');
+    res.send(sql);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;

@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user account and profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Numeric user ID" },
+        "uid": { "type": "string", "description": "Auth identifier" },
+        "name": { "type": "string", "maxLength": 100, "description": "Full name" },
+        "email": { "type": "string", "format": "email", "maxLength": 150, "description": "User email address" },
+        "role": { "type": "string", "enum": ["super_admin", "admin", "sub_admin", "user"], "description": "User system role" },
+        "role_group_id": { "type": "number", "description": "Assigned role group ID" },
+        "employee_id": { "type": "string", "maxLength": 50, "description": "Company employee code" },
+        "team_id": { "type": "number", "description": "Team identifier" },
+        "department_id": { "type": "number", "description": "Department identifier" },
+        "live_status": { "type": "string", "enum": ["active", "away", "busy", "offline", "on_leave"], "description": "Current live status" },
+        "is_active": { "type": "boolean", "description": "Account active state" },
+        "created_at": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["email", "name", "role"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Task management item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Numeric task ID" },
+        "task_id": { "type": "string", "maxLength": 50, "description": "Formatted task ID" },
+        "title": { "type": "string", "maxLength": 200, "description": "Task title" },
+        "description": { "type": "string", "maxLength": 5000, "description": "Task description" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "in_review", "completed", "cancelled", "blocked"], "description": "Task status" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent", "critical"], "description": "Task priority" },
+        "creator_id": { "type": "number", "description": "User ID of creator" },
+        "assignee_id": { "type": "number", "description": "User ID of assignee" },
+        "team_id": { "type": "number", "description": "Assigned team ID" },
+        "department_id": { "type": "number", "description": "Assigned department ID" },
+        "due_date": { "type": "string", "description": "Due date" },
+        "created_at": { "type": "string", "description": "Creation timestamp" },
+        "updated_at": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["title", "status", "priority", "creator_id"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "Functional team within ICT",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Team ID" },
+        "name": { "type": "string", "maxLength": 100, "description": "Team name" },
+        "description": { "type": "string", "maxLength": 500, "description": "Team description" }
+      },
+      "required": ["name"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Branch or hospital department",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Department ID" },
+        "name": { "type": "string", "maxLength": 100, "description": "Department name" },
+        "hotline": { "type": "string", "maxLength": 50, "description": "Direct hotline" },
+        "ext": { "type": "string", "maxLength": 20, "description": "Phone extension" }
+      },
+      "required": ["name"]
+    },
+    "Leave": {
+      "title": "Leave",
+      "description": "Leave application record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Leave ID" },
+        "user_id": { "type": "number", "description": "Applicant user ID" },
+        "leave_type": { "type": "string", "maxLength": 50, "description": "Type of leave" },
+        "start_date": { "type": "string", "description": "Start date" },
+        "end_date": { "type": "string", "description": "End date" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "cancelled"], "description": "Leave status" },
+        "reason": { "type": "string", "maxLength": 1000, "description": "Application reason" }
+      },
+      "required": ["user_id", "leave_type", "start_date", "end_date", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Notification ID" },
+        "user_id": { "type": "number", "description": "Target user ID" },
+        "title": { "type": "string", "maxLength": 200, "description": "Notification title" },
+        "message": { "type": "string", "maxLength": 1000, "description": "Notification message" },
+        "type": { "type": "string", "maxLength": 50, "description": "Category or event type" },
+        "read": { "type": "boolean", "description": "Read status" },
+        "created_at": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["user_id", "title", "message"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security and activity audit entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Audit ID" },
+        "user_id": { "type": "number", "description": "Actor user ID" },
+        "action": { "type": "string", "maxLength": 100, "description": "Action performed" },
+        "entity_type": { "type": "string", "maxLength": 50, "description": "Target entity" },
+        "entity_id": { "type": "string", "maxLength": 50, "description": "Target identifier" },
+        "details": { "type": "string", "maxLength": 2000, "description": "Action details" },
+        "created_at": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["action", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and credentials"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "ICT task items and assignment status"
+    },
+    "/teams/{teamId}": {
+      "schema": "Team",
+      "description": "ICT operational teams"
+    },
+    "/departments/{departmentId}": {
+      "schema": "Department",
+      "description": "Hospital branches and departments"
+    },
+    "/leaves/{leaveId}": {
+      "schema": "Leave",
+      "description": "Employee leave requests and approvals"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System audit trail"
+    }
+  }
+}
