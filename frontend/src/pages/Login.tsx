@@ -11,15 +11,15 @@ export default function Login() {
   const { dark, toggle } = useTheme();
   const navigate = useNavigate();
   const toast = useToast();
-  const [email, setEmail] = useState('dipu@populardiagnostic.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const submit = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
-    e?.preventDefault();
-    const targetEmail = (customEmail !== undefined ? customEmail : email).trim();
-    const targetPass = customPass !== undefined ? customPass : password;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = email.trim();
+    const targetPass = password;
     if (!targetEmail || !targetPass) return toast('Email and password are required', 'error');
     setLoading(true);
     try {
@@ -83,65 +83,42 @@ export default function Login() {
 
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="label">Email</label>
+              <label className="label">Email or Username</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3" />
-                <input className="input !pl-10" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+                <input
+                  className="input !pl-10"
+                  type="text"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@populardiagnostic.com"
+                  autoComplete="username"
+                  required
+                />
               </div>
             </div>
             <div>
               <label className="label">Password</label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3" />
-                <input className="input !pl-10 !pr-10" type={show ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                <input
+                  className="input !pl-10 !pr-10"
+                  type={show ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                />
                 <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink3 hover:text-ink2">
                   {show ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
-            <button type="submit" className="btn btn-primary w-full !py-3" disabled={loading}>
+            <button type="submit" className="btn btn-primary w-full !py-3 font-semibold mt-2" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
-
-          <div className="mt-6 pt-5 border-t border-line/60">
-            <div className="text-xs font-semibold text-ink3 uppercase tracking-wider mb-2.5">
-              Default Credentials
-            </div>
-            <div className="p-3 rounded-xl bg-card2/80 border border-line/60 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-ink flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-brand"></span>
-                    Super Admin: <span className="font-mono text-ink2">dipu@populardiagnostic.com</span>
-                  </div>
-                  <div className="text-ink3 font-mono text-[11px] mt-0.5 ml-3.5">
-                    Password: <span className="text-ink font-semibold">@dmin5066</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-1 border-t border-line/40">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('dipu@populardiagnostic.com');
-                    setPassword('@dmin5066');
-                  }}
-                  className="flex-1 py-1.5 px-2.5 text-center font-medium text-brand rounded-lg bg-brand/10 hover:bg-brand/20 transition-colors"
-                >
-                  Fill Form
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => submit(undefined, 'dipu@populardiagnostic.com', '@dmin5066')}
-                  className="flex-1 py-1.5 px-2.5 text-center font-medium text-white rounded-lg bg-brand hover:bg-brand/90 transition-colors"
-                >
-                  1-Click Sign In
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
