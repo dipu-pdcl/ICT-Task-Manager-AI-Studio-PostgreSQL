@@ -10,12 +10,31 @@ const SCHEMA_FILE = path.join(__dirname, 'db', 'schema.postgres.sql');
 
 let pgPool = null;
 
+export function getSavedPostgresUrl() {
+  try {
+    const row = sqliteDb.prepare("SELECT value FROM settings WHERE key = 'postgres_connection_url'").get();
+    if (row && row.value) {
+      return JSON.parse(row.value);
+    }
+  } catch {}
+  return '';
+}
+
+export function savePostgresUrl(url) {
+  sqliteDb.prepare("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('postgres_connection_url', ?, datetime('now','+6 hours'))")
+    .run(JSON.stringify(url.trim()));
+  pgPool = null; // Reset pool
+}
+
 export function getPostgresConfig() {
-  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || getSavedPostgresUrl() || '';
+
   if (connectionString) {
+    const isDisableSsl = connectionString.includes('sslmode=disable') || process.env.PGSSLMODE === 'disable';
     return {
       connectionString,
-      ssl: process.env.PGSSLMODE === 'disable' ? false : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
+      ssl: isDisableSsl ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 5000,
     };
   }
 
@@ -36,12 +55,13 @@ export function getPostgresConfig() {
     database,
     port,
     ssl: process.env.PGSSLMODE === 'disable' ? false : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
+    connectionTimeoutMillis: 5000,
   };
 }
 
 export function getPostgresPool(customConfig = null) {
   if (customConfig) {
-    return new Pool(customConfig);
+    return new Pool({ ...customConfig, connectionTimeoutMillis: 5000 });
   }
   if (!pgPool) {
     const config = getPostgresConfig();
@@ -56,19 +76,25 @@ export function getPostgresPool(customConfig = null) {
 }
 
 export async function testPostgresConnection(customConfig = null) {
-  const pool = customConfig ? new Pool(customConfig) : getPostgresPool();
-  if (!pool) {
+  const poolConfig = customConfig ? { ...customConfig, connectionTimeoutMillis: 5000 } : getPostgresConfig();
+  if (!poolConfig) {
     return {
       connected: false,
-      error: 'No PostgreSQL connection string or host configured. Set DATABASE_URL or PGHOST/PGUSER/PGDATABASE in environment.',
+      error: 'No PostgreSQL connection string configured. Set DATABASE_URL or enter a connection string.',
     };
   }
+
+  const isLocal = typeof poolConfig === 'object' &&
+    ((poolConfig.host && (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1')) ||
+     (poolConfig.connectionString && (poolConfig.connectionString.includes('localhost') || poolConfig.connectionString.includes('127.0.0.1'))));
+
+  const pool = new Pool(poolConfig);
 
   try {
     const client = await pool.connect();
     const result = await client.query('SELECT version(), current_database(), current_user;');
     client.release();
-    if (customConfig) await pool.end();
+    await pool.end();
 
     return {
       connected: true,
@@ -77,16 +103,33 @@ export async function testPostgresConnection(customConfig = null) {
       version: result.rows[0]?.version,
     };
   } catch (err) {
-    if (customConfig) try { await pool.end(); } catch {}
+    try { await pool.end(); } catch {}
+    const errorMsg = err.message || 'Failed to connect to PostgreSQL';
+    let diagnosis = null;
+
+    if (isLocal) {
+      diagnosis = 'Cloud-to-Local Network Barrier: This application is currently running inside Google Cloud Run. The cloud container cannot connect to "localhost" on your personal laptop because "localhost" points to the container itself. To connect your local database to this cloud app, either use a tunnel (e.g. ngrok tcp 5432) or a free cloud PostgreSQL (e.g. Neon or Supabase). If you run the code directly on your local computer, localhost:5432 will work.';
+    } else if (err.code === 'ECONNREFUSED') {
+      diagnosis = 'Connection refused by destination host. Ensure PostgreSQL is running and listening on all interfaces (listen_addresses = "*") and port 5432 is open.';
+    } else if (err.code === 'ETIMEDOUT') {
+      diagnosis = 'Connection timed out. The server address is unreachable over the internet. Verify hostname, port, and firewall rules.';
+    } else if (err.code === '28P01') {
+      diagnosis = 'Password authentication failed for user. Check your database username and password.';
+    } else if (err.code === '3D000') {
+      diagnosis = 'Database does not exist on the PostgreSQL server. Please run "CREATE DATABASE <name>;" first.';
+    }
+
     return {
       connected: false,
-      error: err.message || 'Failed to connect to PostgreSQL',
+      error: errorMsg,
+      diagnosis,
+      isLocalhostTarget: isLocal,
     };
   }
 }
 
 export async function runPostgresMigrations(customConfig = null) {
-  const pool = customConfig ? new Pool(customConfig) : getPostgresPool();
+  const pool = customConfig ? new Pool({ ...customConfig, connectionTimeoutMillis: 5000 }) : getPostgresPool();
   if (!pool) {
     throw new Error('PostgreSQL connection not configured');
   }
@@ -108,7 +151,7 @@ export async function runPostgresMigrations(customConfig = null) {
 }
 
 export async function syncSqliteToPostgres(customConfig = null) {
-  const pool = customConfig ? new Pool(customConfig) : getPostgresPool();
+  const pool = customConfig ? new Pool({ ...customConfig, connectionTimeoutMillis: 5000 }) : getPostgresPool();
   if (!pool) {
     throw new Error('PostgreSQL connection not configured');
   }
